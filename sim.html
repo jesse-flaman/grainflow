@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2D Hopper Bin — Parametric Revolved Profile</title>
+  <style>
+    :root { --bg:#0f172a; --panel:#0b1020; --text:#e5e7eb; --muted:#94a3b8; --line:#334155; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;background:radial-gradient(1200px 600px at 20% 0%, #0b1224 0%, var(--bg) 60%);color:var(--text)}
+    header{padding:14px 18px;border-bottom:1px solid #1f2937;display:flex;gap:12px;align-items:center}
+    header h1{font-size:18px;margin:0;font-weight:700}
+    header .sub{color:var(--muted);font-size:12px}
+    main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px;min-height:calc(100vh - 60px)}
+    .panel{background:var(--panel);border:1px solid #1f2937;border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .panel h2{margin:0 0 8px;font-size:14px;font-weight:700;color:#cbd5e1}
+    .controls{display:grid;grid-template-columns:1fr;gap:10px}
+    .row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px}
+    label{font-size:12px;color:var(--muted)}
+    input[type=number]{width:120px;background:#071022;border:1px solid #263048;color:var(--text);border-radius:8px;padding:6px 8px}
+    select{width:120px;background:#071022;border:1px solid #263048;color:var(--text);border-radius:8px;padding:6px 8px}
+    button{border:none;background:#1f2937;color:var(--text);border-radius:999px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .primary{background:linear-gradient(135deg,#06b6d4,#22d3ee);color:#03121a}
+    .good{background:linear-gradient(135deg,#10b981,#34d399);color:#04140f}
+    .danger{background:linear-gradient(135deg,#f87171,#fb7185);color:#140607}
+    .ghost{background:#0b1020;border:1px solid #263048;color:#cbd5e1}
+
+    .canvasWrap{position:relative;background:radial-gradient(1200px 600px at 80% 0%, #0b1224 0%, #0a1020 60%);border:1px solid #1f2937;border-radius:16px;overflow:hidden}
+    canvas{display:block;width:100%;height:100%}
+    .hud{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap}
+    .badge{background:rgba(2,6,23,.6);border:1px solid #1f2937;color:#cbd5e1;padding:6px 10px;border-radius:999px;font-size:12px;backdrop-filter:blur(6px)}
+    .legend{margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4}
+  </style>
+</head>
+<body>
+<header>
+  <h1>2D Hopper Bin — Parametric Revolved Profile</h1>
+  <div class="sub">Built from outlet → hopper → wall → roof → inlet; particles collide with every segment (watertight). Includes inlet offset and multi-substep physics for robust collisions.</div>
+</header>
+<main>
+  <section class="panel">
+    <h2>Controls</h2>
+    <div class="controls">
+      <div class="row"><label>Mode</label><select id="mode"><option value="idle">Idle</option><option value="fill">Fill</option><option value="empty">Empty</option></select></div>
+
+      <!-- Geometric parameters (meters) -->
+      <div class="row"><label>Outlet radius (m) <span style="color:#64748b">(~2–60 in)</span></label><input id="outR_m" type="number" min="0.05" max="1.52" step="0.01" value="0.30"></div>
+      <div class="row"><label>Hopper angle (deg)</label><input id="hopAng" type="number" min="10" max="80" step="1" value="55"></div>
+      <div class="row"><label>Hopper length (m)</label><input id="hopLen_m" type="number" min="0.6" max="6" step="0.05" value="2.0"></div>
+      <div class="row"><label>Wall length (m)</label><input id="wallLen_m" type="number" min="0.6" max="6" step="0.05" value="3.0"></div>
+      <div class="row"><label>Roof angle (deg)</label><input id="roofAng" type="number" min="10" max="80" step="1" value="25"></div>
+      <div class="row"><label>Inlet radius (m)</label><input id="inR_m" type="number" min="0.05" max="1.52" step="0.01" value="0.20"></div>
+      <div class="row"><label>Inlet offset down (m)</label><input id="inletOff_m" type="number" min="0" max="1.0" step="0.01" value="0.10"></div>
+
+      <!-- Physics (toy) -->
+      <div class="row"><label>Particles/sec (fill)</label><input id="pps" type="number" min="1" max="4000" step="10" value="350"></div>
+      <div class="row"><label>Particle radius (px)</label><input id="pr" type="number" min="2" max="10" step="1" value="4"></div>
+      <div class="row"><label>Gravity (px/s²)</label><input id="grav" type="number" min="50" max="3000" step="10" value="1000"></div>
+      <div class="row"><label>Restitution</label><input id="rest" type="number" min="0" max="1" step="0.05" value="0.1"></div>
+      <div class="row"><label>Friction</label><input id="fric" type="number" min="0" max="1" step="0.05" value="0.35"></div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button id="btnFill" class="primary">Start Fill</button>
+        <button id="btnEmpty" class="good">Start Empty</button>
+        <button id="btnPause" class="ghost">Pause</button>
+        <button id="btnReset" class="danger">Reset</button>
+      </div>
+      <div class="legend">Geometry is computed from the parameters above. Total height/diameter are derived and shown on-canvas.</div>
+    </div>
+  </section>
+
+  <section class="canvasWrap">
+    <div class="hud" id="hud"></div>
+    <canvas id="sim"></canvas>
+  </section>
+</main>
+
+<script>
+const canvas=document.getElementById('sim');
+const ctx=canvas.getContext('2d');
+const hud=document.getElementById('hud');
+let W=1200,H=800,last=performance.now();
+
+// Inputs
+const modeSel=document.getElementById('mode');
+const outR_m=document.getElementById('outR_m');
+const hopAng=document.getElementById('hopAng');
+const hopLen_m=document.getElementById('hopLen_m');
+const wallLen_m=document.getElementById('wallLen_m');
+const roofAng=document.getElementById('roofAng');
+const inR_m=document.getElementById('inR_m');
+const inletOff_m=document.getElementById('inletOff_m');
+const pps=document.getElementById('pps');
+const pr=document.getElementById('pr');
+const grav=document.getElementById('grav');
+const rest=document.getElementById('rest');
+const fric=document.getElementById('fric');
+
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+
+// Geometry container
+const geom={scale:100,cx:0,baseY:0,pointsRight:[],pointsLeft:[],segments:[],inletCenter:[0,0],
+            inletRight:[0,0], inletLeft:[0,0], totalH:0,totalD:0};
+
+function recomputeGeometry(){
+  const rightCol=document.querySelector('.canvasWrap');
+  const rect=rightCol.getBoundingClientRect();
+  W=Math.max(600,rect.width); H=Math.max(520,window.innerHeight-120);
+  canvas.width=W; canvas.height=H;
+
+  // Parameters
+  const outR=clamp(Number(outR_m.value),0.05,1.52);
+  const inR=clamp(Number(inR_m.value),0.05,1.52);
+  const inletOff=clamp(Number(inletOff_m.value),0,1.0);
+  const hopperLen=clamp(Number(hopLen_m.value),0.6,6);
+  const wallLen=clamp(Number(wallLen_m.value),0.6,6);
+  const aH=(Math.PI/180)*clamp(Number(hopAng.value),10,80);
+  const aR=(Math.PI/180)*clamp(Number(roofAng.value),10,80);
+
+  // Fit scale
+  const maxWidth=Math.max(outR,inR)+hopperLen*Math.cos(aH)+0.6; // add padding
+  const approxRoofRun=Math.max(0,(outR + hopperLen*Math.cos(aH)) - inR);
+  const maxHeight=hopperLen*Math.sin(aH)+wallLen+Math.tan(aR)*approxRoofRun + inletOff + 0.6;
+  const marginX=120, marginTop=40, marginBot=40;
+  const availW=W-marginX*2, availH=H-marginTop-marginBot;
+  const sx=availW/(2*maxWidth); const sy=availH/maxHeight; geom.scale=Math.min(sx,sy);
+
+  geom.cx = marginX + geom.scale*maxWidth; // leave room for labels on RHS
+  geom.baseY = H - marginBot;
+
+  const S = geom.scale; // px/m
+
+  // Points from outlet up (right side)
+  const P0=[geom.cx, geom.baseY];
+  const P1=[geom.cx + outR*S, geom.baseY]; // outlet right
+  const P2=[ P1[0] + hopperLen*Math.cos(aH)*S, P1[1] - hopperLen*Math.sin(aH)*S ]; // hopper end
+  const P3=[ P2[0], P2[1] - wallLen*S ]; // top of wall
+  // Inlet line is horizontal at y = roof intersection minus offset
+  const inletY = P3[1] - Math.tan(aR) * Math.max(0,(P3[0] - (geom.cx + inR*S))) + inletOff*S;
+  const P4=[ geom.cx + inR*S, inletY ]; // inlet right end
+  const P5=[ geom.cx, inletY ]; // inlet center
+
+  geom.pointsRight=[P0,P1,P2,P3,P4,P5];
+  // Mirror for left side
+  geom.pointsLeft=[...geom.pointsRight].map(([x,y])=>[2*geom.cx - x, y]).reverse();
+
+  // Segments (right + left)
+  const segs=[];
+  for(let i=0;i<geom.pointsRight.length-1;i++) segs.push([geom.pointsRight[i],geom.pointsRight[i+1]]);
+  for(let i=0;i<geom.pointsLeft.length-1;i++) segs.push([geom.pointsLeft[i],geom.pointsLeft[i+1]]);
+  geom.segments=segs; // gate bar handled in collision
+
+  geom.inletCenter=P5; geom.inletRight=P4; geom.inletLeft=[2*geom.cx - P4[0], P4[1]];
+
+  // Derived dims
+  geom.totalH = (geom.baseY - inletY);
+  const xs=[...geom.pointsRight,...geom.pointsLeft].map(p=>p[0]);
+  geom.totalD = Math.max(...xs) - Math.min(...xs);
+}
+
+// Particles & collisions ------------------------------------------------------
+class P{constructor(x,y,r){this.x=x;this.y=y;this.r=r;this.vx=(Math.random()-0.5)*12;this.vy=0;this.dead=false;this.color=Math.random()<0.5?'#f8d66d':'#d9b85f';}}
+let particles=[]; let grid=new Map(); const cell=18;
+function gridKey(ix,iy){return ix+","+iy}
+function gridInsert(p){const ix=(p.x/cell)|0,iy=(p.y/cell)|0;const k=gridKey(ix,iy);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(p)}
+function gridNeighbors(x,y){const ix=(x/cell)|0,iy=(y/cell)|0;const out=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const a=grid.get(gridKey(ix+dx,iy+dy));if(a)out.push(...a)}return out}
+
+function particleCollisions(){
+  grid.clear(); for(const p of particles) gridInsert(p);
+  const e=clamp(Number(rest.value),0,1); const mu=clamp(Number(fric.value),0,1);
+  for(const p of particles){
+    const neigh=gridNeighbors(p.x,p.y);
+    for(const q of neigh){ if(q===p) continue; const dx=q.x-p.x, dy=q.y-p.y; const r=p.r+q.r; const d2=dx*dx+dy*dy; if(d2>0 && d2<r*r){ const d=Math.sqrt(d2)||1e-6; const nx=dx/d, ny=dy/d; const overlap=r-d; const push=0.5*overlap; p.x-=nx*push; p.y-=ny*push; q.x+=nx*push; q.y+=ny*push; const rvx=q.vx-p.vx, rvy=q.vy-p.vy; const vn=rvx*nx + rvy*ny; if(vn>0) continue; const jn=-(1+e)*vn*0.5; const tx=-ny, ty=nx; const vt=rvx*tx + rvy*ty; const jt=clamp(vt, -mu*Math.abs(jn), mu*Math.abs(jn)); p.vx -= jn*nx + jt*tx; p.vy -= jn*ny + jt*ty; q.vx += jn*nx + jt*tx; q.vy += jn*ny + jt*ty; } }
+  }
+}
+
+function collideSegments(p){
+  const e=clamp(Number(rest.value),0,1); const mu=clamp(Number(fric.value),0,1);
+  const segs=[...geom.segments];
+  // Gate bar across outlet when not emptying
+  const P1=geom.pointsRight[1]; const P1L=[2*geom.cx - P1[0], P1[1]];
+  if(sim.state!=='empty') segs.push([P1L,P1]);
+
+  // Multiple resolution passes to reduce leak-through
+  for(let iter=0; iter<3; iter++){
+    let collided=false;
+    for(const [A,B] of segs){
+      const ax=A[0], ay=A[1], bx=B[0], by=B[1];
+      const abx=bx-ax, aby=by-ay; const apx=p.x-ax, apy=p.y-ay;
+      const ab2=abx*abx+aby*aby; const t=clamp((apx*abx+apy*aby)/(ab2||1e-6),0,1);
+      const cx=ax+abx*t, cy=ay+aby*t; const dx=p.x-cx, dy=p.y-cy; const d2=dx*dx+dy*dy; const r=p.r;
+      if(d2<r*r){
+        collided=true;
+        const d=Math.sqrt(d2)||1e-6; const nx=dx/(d||1e-6), ny=dy/(d||1e-6); const pen=r-d;
+        p.x += nx*pen; p.y += ny*pen;
+        const vn=p.vx*nx + p.vy*ny; const vtX=p.vx - vn*nx, vtY=p.vy - vn*ny;
+        p.vx = (-vn*(1-e))*nx + vtX*(1-mu*0.25);
+        p.vy = (-vn*(1-e))*ny + vtY*(1-mu*0.25);
+      }
+    }
+    if(!collided) break;
+  }
+
+  // In empty mode, cull when below the outlet and within slot
+  if(sim.state==='empty'){
+    const yGate=P1[1]; const xL=P1L[0], xR=P1[0];
+    if(p.y - p.r > yGate + 8 && p.x > xL && p.x < xR){ p.dead=true; }
+  }
+}
+
+function spawnParticle(){
+  const r=clamp(Number(pr.value),2,10);
+  const [cx,cy]=geom.inletCenter;
+  const span=Math.max(4, Number(inR_m.value)*geom.scale - r*2);
+  const x=cx + (Math.random()-0.5) * span * 0.6; // jitter inside inlet width
+  const y=cy - r - 2; // just inside
+  const p=new P(x,y,r);
+  p.vx = (Math.random()-0.5)*4; p.vy = 0;
+  particles.push(p);
+}
+
+// Sim state
+const sim={running:true,state:'idle',t:0,lastSpawn:0};
+
+function step(dt){
+  const G=Number(grav.value);
+  const SUB=5; const sdt=dt/SUB; // more substeps => fewer leaks
+  if(sim.state==='fill'){
+    const rate=clamp(Number(pps.value),1,4000);
+    sim.lastSpawn += dt*rate; while(sim.lastSpawn>=1){ spawnParticle(); sim.lastSpawn -= 1; }
+  }
+  for(let k=0;k<SUB;k++){
+    for(const p of particles){ p.vy += G*sdt; p.x += p.vx*sdt; p.y += p.vy*sdt; collideSegments(p); }
+    // Two passes of particle collisions per substep
+    particleCollisions();
+  }
+  particles = particles.filter(p=>!p.dead && p.y - p.r < H + 120);
+}
+
+// Drawing --------------------------------------------------------------------
+function drawLine(a,b,style='#334155',w=2){ ctx.strokeStyle=style; ctx.lineWidth=w; ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke(); }
+
+function drawBin(){
+  for(let i=0;i<geom.pointsRight.length-1;i++) drawLine(geom.pointsRight[i],geom.pointsRight[i+1]);
+  for(let i=0;i<geom.pointsLeft.length-1;i++) drawLine(geom.pointsLeft[i],geom.pointsLeft[i+1]);
+  const P1=geom.pointsRight[1]; const P1L=[2*geom.cx - P1[0], P1[1]];
+  drawLine(P1L,P1, sim.state==='empty' ? '#34d399' : '#64748b', 6);
+  drawDims();
+}
+
+function drawDims(){
+  const x0 = Math.max(...geom.pointsRight.map(p=>p[0])) + 40;
+  ctx.save(); ctx.fillStyle='#94a3b8'; ctx.strokeStyle='#475569'; ctx.lineWidth=1.5; ctx.font='12px ui-sans-serif';
+  const topY = geom.inletCenter[1]; const botY = geom.pointsRight[1][1];
+  drawArrow([x0, topY],[x0, botY]);
+  ctx.fillText(`H ≈ ${(geom.totalH/geom.scale).toFixed(2)} m`, x0+6, (topY+botY)/2);
+  const minX = Math.min(...geom.pointsLeft.map(p=>p[0])); const maxX = Math.max(...geom.pointsRight.map(p=>p[0])); const midY = (geom.pointsRight[2][1]+geom.pointsRight[3][1])/2;
+  drawArrow([minX, midY],[maxX, midY]);
+  ctx.fillText(`D(max) ≈ ${(geom.totalD/geom.scale).toFixed(2)} m`, x0+6, midY-6);
+  ctx.fillText(`Outlet R = ${Number(outR_m.value).toFixed(2)} m`, x0+6, botY+16);
+  ctx.fillText(`Inlet R = ${Number(inR_m.value).toFixed(2)} m`, x0+6, topY-8);
+  ctx.fillText(`θ_hop = ${Number(hopAng.value)}°`, x0+6, geom.pointsRight[2][1]-8);
+  ctx.fillText(`θ_roof = ${Number(roofAng.value)}°`, x0+6, geom.pointsRight[4][1]-8);
+  ctx.restore();
+}
+
+function drawArrow(a,b){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke(); const head=(x,y,dx,dy)=>{const L=6; const n=Math.hypot(dx,dy)||1; const ux=dx/n, uy=dy/n; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-ux*L - uy*L*0.6, y-uy*L + ux*L*0.6); ctx.lineTo(x-ux*L + uy*L*0.6, y-uy*L - ux*L*0.6); ctx.closePath(); ctx.fillStyle='#94a3b8'; ctx.fill();}; head(b[0],b[1], b[0]-a[0], b[1]-a[1]); head(a[0],a[1], a[0]-b[0], a[1]-b[1]); }
+
+function drawParticles(){
+  for(const p of particles){ ctx.beginPath(); ctx.arc(p.x,p.y,p.r+1.5,0,Math.PI*2); ctx.fillStyle='rgba(2,6,23,0.25)'; ctx.fill(); }
+  for(const p of particles){ const g=ctx.createRadialGradient(p.x-p.r*0.5,p.y-p.r*0.7,p.r*0.2,p.x,p.y,p.r); g.addColorStop(0,'#fff4'); g.addColorStop(1,p.color); ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill(); }
+}
+
+function drawHUD(){
+  hud.innerHTML=''; const items=[
+    {label:'State',value:sim.state},{label:'Particles',value:particles.length.toString()},{label:'PPS',value:pps.value},
+    {label:'H (m)',value:(geom.totalH/geom.scale).toFixed(2)},{label:'Dmax (m)',value:(geom.totalD/geom.scale).toFixed(2)}
+  ];
+  for(const it of items){ const d=document.createElement('div'); d.className='badge'; d.textContent=`${it.label}: ${it.value}`; hud.appendChild(d); }
+}
+
+function loop(now){ const dt=Math.min(0.033,(now-last)/1000); last=now; if(sim.running){ step(dt); ctx.clearRect(0,0,W,H); drawBin(); drawParticles(); drawHUD(); } requestAnimationFrame(loop); }
+
+function resize(){ recomputeGeometry(); }
+window.addEventListener('resize', resize);
+['input','change'].forEach(ev=>{ [outR_m,hopAng,hopLen_m,wallLen_m,roofAng,inR_m,inletOff_m].forEach(el=>el.addEventListener(ev,recomputeGeometry)); });
+
+document.getElementById('btnFill').onclick=()=>{ sim.state='fill'; modeSel.value='fill'; };
+
+document.getElementById('btnEmpty').onclick=()=>{ sim.state='empty'; modeSel.value='empty'; };
+
+document.getElementById('btnPause').onclick=()=>{ sim.running=!sim.running; document.getElementById('btnPause').textContent = sim.running ? 'Pause' : 'Resume'; };
+
+document.getElementById('btnReset').onclick=()=>{ particles=[]; sim.state='idle'; modeSel.value='idle'; };
+
+modeSel.onchange=(e)=>{ sim.state=e.target.value; };
+
+// Boot
+recomputeGeometry(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>
