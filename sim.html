@@ -182,7 +182,7 @@ function collideSegments(p){
   if(sim.state!=='empty') segs.push([P1L,P1]);
 
   // Multiple resolution passes to reduce leak-through
-  for(let iter=0; iter<3; iter++){
+  for(let iter=0; iter<5; iter++){
     let collided=false;
     for(const [A,B] of segs){
       const ax=A[0], ay=A[1], bx=B[0], by=B[1];
@@ -212,11 +212,27 @@ function spawnParticle(){
   const r=clamp(Number(pr.value),2,10);
   const [cx,cy]=geom.inletCenter;
   const span=Math.max(4, Number(inR_m.value)*geom.scale - r*2);
+  const inletOff=clamp(Number(inletOff_m.value),0,1.0)*geom.scale;
   const x=cx + (Math.random()-0.5) * span * 0.6; // jitter inside inlet width
-  const y=cy - r - 2; // just inside
+  const y=cy + r + 2 + inletOff; // just inside, below the top, with offset down
   const p=new P(x,y,r);
-  p.vx = (Math.random()-0.5)*4; p.vy = 0;
-  particles.push(p);
+  p.vx = (Math.random()-0.5)*4; p.vy = Math.random()*4; // downward velocity only
+
+  // Check for overlap with existing particles
+  let overlap = false;
+  const neigh = gridNeighbors(p.x, p.y);
+  for(const q of neigh){
+    const dx = q.x - p.x;
+    const dy = q.y - p.y;
+    const d2 = dx*dx + dy*dy;
+    if(d2 < (p.r + q.r)*(p.r + q.r)){
+      overlap = true;
+      break;
+    }
+  }
+  if(!overlap){
+    particles.push(p);
+  }
 }
 
 // Sim state
@@ -224,7 +240,7 @@ const sim={running:true,state:'idle',t:0,lastSpawn:0};
 
 function step(dt){
   const G=Number(grav.value);
-  const SUB=5; const sdt=dt/SUB; // more substeps => fewer leaks
+  const SUB=10; const sdt=dt/SUB; // more substeps => fewer leaks
   if(sim.state==='fill'){
     const rate=clamp(Number(pps.value),1,4000);
     sim.lastSpawn += dt*rate; while(sim.lastSpawn>=1){ spawnParticle(); sim.lastSpawn -= 1; }
