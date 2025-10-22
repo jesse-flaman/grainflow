@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>2D Hopper Bin — Parametric Revolved Profile</title>
+  <title>2D Hopper Bin — Parametric Revolved Profile (v3, fixed)</title>
   <style>
     :root { --bg:#0f172a; --panel:#0b1020; --text:#e5e7eb; --muted:#94a3b8; --line:#334155; }
     *{box-sizing:border-box}
@@ -17,8 +17,7 @@
     .controls{display:grid;grid-template-columns:1fr;gap:10px}
     .row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px}
     label{font-size:12px;color:var(--muted)}
-    input[type=number]{width:120px;background:#071022;border:1px solid #263048;color:var(--text);border-radius:8px;padding:6px 8px}
-    select{width:120px;background:#071022;border:1px solid #263048;color:var(--text);border-radius:8px;padding:6px 8px}
+    input[type=number], select{width:120px;background:#071022;border:1px solid #263048;color:var(--text);border-radius:8px;padding:6px 8px}
     button{border:none;background:#1f2937;color:var(--text);border-radius:999px;padding:10px 14px;font-weight:700;cursor:pointer}
     .primary{background:linear-gradient(135deg,#06b6d4,#22d3ee);color:#03121a}
     .good{background:linear-gradient(135deg,#10b981,#34d399);color:#04140f}
@@ -29,35 +28,41 @@
     canvas{display:block;width:100%;height:100%}
     .hud{position:absolute;top:10px;left:10px;display:flex;gap:8px;flex-wrap:wrap}
     .badge{background:rgba(2,6,23,.6);border:1px solid #1f2937;color:#cbd5e1;padding:6px 10px;border-radius:999px;font-size:12px;backdrop-filter:blur(6px)}
-    .legend{margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4}
+    .err{position:absolute;right:10px;top:10px;background:#7f1d1d;color:#fee2e2;border:1px solid #ef4444;padding:6px 10px;border-radius:8px;font-size:12px;display:none}
   </style>
 </head>
 <body>
 <header>
   <h1>2D Hopper Bin — Parametric Revolved Profile</h1>
-  <div class="sub">Built from outlet → hopper → wall → roof → inlet; particles collide with every segment (watertight). Includes inlet offset and multi-substep physics for robust collisions.</div>
+  <div class="sub">Outlet is a real wall in FILL; omitted in EMPTY. CCD-style resolution with robust normals.</div>
 </header>
 <main>
   <section class="panel">
     <h2>Controls</h2>
     <div class="controls">
-      <div class="row"><label>Mode</label><select id="mode"><option value="idle">Idle</option><option value="fill">Fill</option><option value="empty">Empty</option></select></div>
+      <div class="row"><label>Mode</label>
+        <select id="mode">
+          <option value="idle">Idle</option>
+          <option value="fill">Fill</option>
+          <option value="empty">Empty</option>
+        </select>
+      </div>
 
-      <!-- Geometric parameters (meters) -->
-      <div class="row"><label>Outlet radius (m) <span style="color:#64748b">(~2–60 in)</span></label><input id="outR_m" type="number" min="0.05" max="1.52" step="0.01" value="0.30"></div>
+      <!-- Geometric parameters (feet) -->
+      <div class="row"><label>Outlet radius (ft)</label><input id="outR_m" type="number" min="0.16" max="5" step="0.03" value="1"></div>
       <div class="row"><label>Hopper angle (deg)</label><input id="hopAng" type="number" min="10" max="80" step="1" value="55"></div>
-      <div class="row"><label>Hopper length (m)</label><input id="hopLen_m" type="number" min="0.6" max="6" step="0.05" value="2.0"></div>
-      <div class="row"><label>Wall length (m)</label><input id="wallLen_m" type="number" min="0.6" max="6" step="0.05" value="3.0"></div>
+      <div class="row"><label>Hopper length (ft)</label><input id="hopLen_m" type="number" min="2" max="20" step="0.16" value="6.56"></div>
+      <div class="row"><label>Wall length (ft)</label><input id="wallLen_m" type="number" min="2" max="20" step="0.16" value="9.84"></div>
       <div class="row"><label>Roof angle (deg)</label><input id="roofAng" type="number" min="10" max="80" step="1" value="25"></div>
-      <div class="row"><label>Inlet radius (m)</label><input id="inR_m" type="number" min="0.05" max="1.52" step="0.01" value="0.20"></div>
-      <div class="row"><label>Inlet offset down (m)</label><input id="inletOff_m" type="number" min="0" max="1.0" step="0.01" value="0.10"></div>
+      <div class="row"><label>Inlet radius (ft)</label><input id="inR_m" type="number" min="0.16" max="5" step="0.03" value="0.66"></div>
+      <div class="row"><label>Inlet offset down (ft)</label><input id="inletOff_m" type="number" min="0" max="3.28" step="0.03" value="0.33"></div>
 
       <!-- Physics (toy) -->
       <div class="row"><label>Particles/sec (fill)</label><input id="pps" type="number" min="1" max="4000" step="10" value="350"></div>
       <div class="row"><label>Particle radius (px)</label><input id="pr" type="number" min="2" max="10" step="1" value="4"></div>
-      <div class="row"><label>Gravity (px/s²)</label><input id="grav" type="number" min="50" max="3000" step="10" value="1000"></div>
-      <div class="row"><label>Restitution</label><input id="rest" type="number" min="0" max="1" step="0.05" value="0.1"></div>
-      <div class="row"><label>Friction</label><input id="fric" type="number" min="0" max="1" step="0.05" value="0.35"></div>
+      <div class="row"><label>Gravity (ft/s²)</label><input id="grav" type="number" min="1" max="100" step="1" value="32.2"></div>
+      <div class="row"><label>Restitution</label><input id="rest" type="number" min="0" max="1" step="0.05" value="0.5"></div>
+      <div class="row"><label>Friction</label><input id="fric" type="number" min="0" max="1" step="0.05" value="0.3"></div>
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
         <button id="btnFill" class="primary">Start Fill</button>
@@ -65,12 +70,12 @@
         <button id="btnPause" class="ghost">Pause</button>
         <button id="btnReset" class="danger">Reset</button>
       </div>
-      <div class="legend">Geometry is computed from the parameters above. Total height/diameter are derived and shown on-canvas.</div>
     </div>
   </section>
 
   <section class="canvasWrap">
     <div class="hud" id="hud"></div>
+    <div class="err" id="err"></div>
     <canvas id="sim"></canvas>
   </section>
 </main>
@@ -79,7 +84,9 @@
 const canvas=document.getElementById('sim');
 const ctx=canvas.getContext('2d');
 const hud=document.getElementById('hud');
-let W=1200,H=800,last=performance.now();
+const errBox=document.getElementById('err');
+let W=1200,H=800;
+let acc=0; const FIXED_DT=1/120; let lastTS=performance.now();
 
 // Inputs
 const modeSel=document.getElementById('mode');
@@ -96,11 +103,15 @@ const grav=document.getElementById('grav');
 const rest=document.getElementById('rest');
 const fric=document.getElementById('fric');
 
+function uiError(msg){ errBox.textContent=msg; errBox.style.display='block'; }
+function clearError(){ errBox.style.display='none'; }
+
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function almostEq(a,b,eps=0.5){return Math.abs(a-b)<=eps}
 
 // Geometry container
-const geom={scale:100,cx:0,baseY:0,pointsRight:[],pointsLeft:[],segments:[],inletCenter:[0,0],
-            inletRight:[0,0], inletLeft:[0,0], totalH:0,totalD:0};
+const geom={scale:100,cx:0,baseY:0,pointsRight:[],pointsLeft:[],inletCenter:[0,0],
+            inletRight:[0,0], inletLeft:[0,0], totalH:0,totalD:0, midY:0};
 
 function recomputeGeometry(){
   const rightCol=document.querySelector('.canvasWrap');
@@ -108,211 +119,250 @@ function recomputeGeometry(){
   W=Math.max(600,rect.width); H=Math.max(520,window.innerHeight-120);
   canvas.width=W; canvas.height=H;
 
-  // Parameters
-  const outR=clamp(Number(outR_m.value),0.05,1.52);
-  const inR=clamp(Number(inR_m.value),0.05,1.52);
-  const inletOff=clamp(Number(inletOff_m.value),0,1.0);
-  const hopperLen=clamp(Number(hopLen_m.value),0.6,6);
-  const wallLen=clamp(Number(wallLen_m.value),0.6,6);
+  // Parameters (feet/degrees)
+  const outR=clamp(Number(outR_m.value),0.16,5);
+  const inR=clamp(Number(inR_m.value),0.16,5);
+  const inletOff=clamp(Number(inletOff_m.value),0,3.28);
+  const hopperLen=clamp(Number(hopLen_m.value),2,20);
+  const wallLen=clamp(Number(wallLen_m.value),2,20);
   const aH=(Math.PI/180)*clamp(Number(hopAng.value),10,80);
   const aR=(Math.PI/180)*clamp(Number(roofAng.value),10,80);
 
   // Fit scale
-  const maxWidth=Math.max(outR,inR)+hopperLen*Math.cos(aH)+0.6; // add padding
+  const maxWidth=Math.max(outR,inR)+hopperLen*Math.cos(aH)+0.6; // padding
   const approxRoofRun=Math.max(0,(outR + hopperLen*Math.cos(aH)) - inR);
   const maxHeight=hopperLen*Math.sin(aH)+wallLen+Math.tan(aR)*approxRoofRun + inletOff + 0.6;
   const marginX=120, marginTop=40, marginBot=40;
   const availW=W-marginX*2, availH=H-marginTop-marginBot;
   const sx=availW/(2*maxWidth); const sy=availH/maxHeight; geom.scale=Math.min(sx,sy);
 
-  geom.cx = marginX + geom.scale*maxWidth; // leave room for labels on RHS
+  geom.cx = marginX + geom.scale*maxWidth;
   geom.baseY = H - marginBot;
 
-  const S = geom.scale; // px/m
+  const S = geom.scale; // px/ft
 
-  // Points from outlet up (right side)
+  // Key points (right side up from outlet)
   const P0=[geom.cx, geom.baseY];
-  const P1=[geom.cx + outR*S, geom.baseY]; // outlet right
+  const P1=[geom.cx + outR*S, geom.baseY]; // outlet right lip
   const P2=[ P1[0] + hopperLen*Math.cos(aH)*S, P1[1] - hopperLen*Math.sin(aH)*S ]; // hopper end
-  const P3=[ P2[0], P2[1] - wallLen*S ]; // top of wall
-  // Inlet line is horizontal at y = roof intersection minus offset
+  const P3=[ P2[0], P2[1] - wallLen*S ]; // top of straight wall
   const inletY = P3[1] - Math.tan(aR) * Math.max(0,(P3[0] - (geom.cx + inR*S))) + inletOff*S;
   const P4=[ geom.cx + inR*S, inletY ]; // inlet right end
-  const P5=[ geom.cx, inletY ]; // inlet center
+  const P5=[ geom.cx, inletY ];         // inlet center
 
   geom.pointsRight=[P0,P1,P2,P3,P4,P5];
-  // Mirror for left side
+  // Mirror for left side and reverse for downward traversal
   geom.pointsLeft=[...geom.pointsRight].map(([x,y])=>[2*geom.cx - x, y]).reverse();
 
-  // Segments (right + left)
-  const segs=[];
-  for(let i=0;i<geom.pointsRight.length-1;i++) segs.push([geom.pointsRight[i],geom.pointsRight[i+1]]);
-  for(let i=0;i<geom.pointsLeft.length-1;i++) segs.push([geom.pointsLeft[i],geom.pointsLeft[i+1]]);
-  geom.segments=segs; // gate bar handled in collision
-
   geom.inletCenter=P5; geom.inletRight=P4; geom.inletLeft=[2*geom.cx - P4[0], P4[1]];
-
-  // Derived dims
   geom.totalH = (geom.baseY - inletY);
   const xs=[...geom.pointsRight,...geom.pointsLeft].map(p=>p[0]);
   geom.totalD = Math.max(...xs) - Math.min(...xs);
+  geom.midY = (inletY + geom.baseY) / 2;
 }
 
-// Particles & collisions ------------------------------------------------------
-class P{constructor(x,y,r){this.x=x;this.y=y;this.r=r;this.vx=(Math.random()-0.5)*12;this.vy=0;this.dead=false;this.color=Math.random()<0.5?'#f8d66d':'#d9b85f';}}
+// -------- Shell builder: same wall type for everything, gate only in FILL/IDLE
+function buildSegmentsFor(state) {
+  const R = geom.pointsRight; // [P0,P1,P2,P3,P4,P5]
+  const L = geom.pointsLeft;  // [L0(inletC),L1(inletL),L2, L3, L4(left lip), L5(center)]
+
+  // Ordered path around the cavity (without bottom)
+  const path = [
+    R[1], R[2], R[3], R[4], R[5], // right wall up to inlet center
+    L[1], L[2], L[3], L[4]        // across top to left inlet, then down left wall to left lip
+  ];
+
+  const segs = [];
+  for (let i=0; i<path.length-1; i++) segs.push([path[i], path[i+1]]);
+  // Close the outlet (left lip -> right lip) when not empty
+  if (state !== 'empty') segs.push([L[4], R[1]]);
+  return segs;
+}
+
+// ------------------------ Collision helpers (refactored)
+class P{
+  constructor(x,y,r,batch){this.x=x;this.y=y;this.r=r;this.vx=(Math.random()-0.5)*12;this.vy=0;this.dead=false;this.batch=batch;}
+}
+
 let particles=[]; let grid=new Map(); const cell=18;
 function gridKey(ix,iy){return ix+","+iy}
 function gridInsert(p){const ix=(p.x/cell)|0,iy=(p.y/cell)|0;const k=gridKey(ix,iy);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(p)}
 function gridNeighbors(x,y){const ix=(x/cell)|0,iy=(y/cell)|0;const out=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const a=grid.get(gridKey(ix+dx,iy+dy));if(a)out.push(...a)}return out}
+function batchIdNow(){return Math.floor(performance.now()/1000/3)}
+function batchColor(b){const hue=(b*57)%360; return `hsl(${hue}, 75%, 60%)`;}
+
+// closest-point contact with a segment; normal points from segment -> particle center
+function contactAgainstSegment(p, A, B){
+  const ax=A[0], ay=A[1], bx=B[0], by=B[1];
+  const abx=bx-ax, aby=by-ay;
+  const apx=p.x-ax, apy=p.y-ay;
+  const ab2=abx*abx+aby*aby || 1e-12;
+  const t=clamp((apx*abx+apy*aby)/ab2, 0, 1);
+  const cx=ax+abx*t, cy=ay+aby*t;
+  const dx=p.x - cx, dy=p.y - cy;
+  const dist=Math.hypot(dx,dy);
+  const pen=p.r - dist;
+  if(pen>0){
+    let nx, ny;
+    if(dist>1e-8){ nx=dx/dist; ny=dy/dist; }
+    else {
+      // Center exactly on the segment; pick a perpendicular
+      const len=Math.hypot(abx,aby)||1;
+      nx = -aby/len; ny = abx/len;
+      const tx=geom.cx - p.x, ty=geom.midY - p.y;
+      if(nx*tx + ny*ty < 0){ nx=-nx; ny=-ny; }
+    }
+    return {hit:true, nx, ny, pen, cx, cy, t};
+  }
+  return {hit:false};
+}
+
+function contactWithShell(p, segs){
+  let best=null;
+  for(const [A,B] of segs){
+    const c=contactAgainstSegment(p,A,B);
+    if(c.hit && (!best || c.pen>best.pen)) best=c;
+  }
+  return best || {hit:false};
+}
+
+// Move + resolve with projection; stable on flat gate
+function integrateParticle(p, dt, segs){
+  const e=clamp(Number(rest.value),0,1);
+  const mu=clamp(Number(fric.value),0,1);
+  // Advance
+  p.x += p.vx*dt; p.y += p.vy*dt;
+
+  // Resolve up to a few contacts in this substep
+  for(let it=0; it<4; it++){
+    const info = contactWithShell(p, segs);
+    if(!info.hit) break;
+
+    // Push out of the wall
+    const slop = 0.15;
+    p.x += info.nx * (info.pen + slop);
+    p.y += info.ny * (info.pen + slop);
+
+    // Reflect velocity (normal restitution + tangential friction)
+    const vn = p.vx*info.nx + p.vy*info.ny;
+    const vtX = p.vx - vn*info.nx, vtY = p.vy - vn*info.ny;
+    const newVn = -vn * e;
+    const newVtX = vtX * (1 - mu);
+    const newVtY = vtY * (1 - mu);
+    p.vx = newVn*info.nx + newVtX;
+    p.vy = newVn*info.ny + newVtY;
+  }
+}
 
 function particleCollisions(){
   grid.clear(); for(const p of particles) gridInsert(p);
   const e=clamp(Number(rest.value),0,1); const mu=clamp(Number(fric.value),0,1);
   for(const p of particles){
     const neigh=gridNeighbors(p.x,p.y);
-    for(const q of neigh){ if(q===p) continue; const dx=q.x-p.x, dy=q.y-p.y; const r=p.r+q.r; const d2=dx*dx+dy*dy; if(d2>0 && d2<r*r){ const d=Math.sqrt(d2)||1e-6; const nx=dx/d, ny=dy/d; const overlap=r-d; const push=0.5*overlap; p.x-=nx*push; p.y-=ny*push; q.x+=nx*push; q.y+=ny*push; const rvx=q.vx-p.vx, rvy=q.vy-p.vy; const vn=rvx*nx + rvy*ny; if(vn>0) continue; const jn=-(1+e)*vn*0.5; const tx=-ny, ty=nx; const vt=rvx*tx + rvy*ty; const jt=clamp(vt, -mu*Math.abs(jn), mu*Math.abs(jn)); p.vx -= jn*nx + jt*tx; p.vy -= jn*ny + jt*ty; q.vx += jn*nx + jt*tx; q.vy += jn*ny + jt*ty; } }
-  }
-}
-
-function collideSegments(p){
-  const e=clamp(Number(rest.value),0,1); const mu=clamp(Number(fric.value),0,1);
-  const segs=[...geom.segments];
-  // Gate bar across outlet when not emptying
-  const P1=geom.pointsRight[1]; const P1L=[2*geom.cx - P1[0], P1[1]];
-  if(sim.state!=='empty') segs.push([P1L,P1]);
-
-  // Multiple resolution passes to reduce leak-through
-  for(let iter=0; iter<5; iter++){
-    let collided=false;
-    for(const [A,B] of segs){
-      const ax=A[0], ay=A[1], bx=B[0], by=B[1];
-      const abx=bx-ax, aby=by-ay; const apx=p.x-ax, apy=p.y-ay;
-      const ab2=abx*abx+aby*aby; const t=clamp((apx*abx+apy*aby)/(ab2||1e-6),0,1);
-      const cx=ax+abx*t, cy=ay+aby*t; const dx=p.x-cx, dy=p.y-cy; const d2=dx*dx+dy*dy; const r=p.r;
-      if(d2<r*r){
-        collided=true;
-        const d=Math.sqrt(d2)||1e-6; const nx=dx/(d||1e-6), ny=dy/(d||1e-6); const pen=r-d;
-        p.x += nx*pen; p.y += ny*pen;
-        const vn=p.vx*nx + p.vy*ny; const vtX=p.vx - vn*nx, vtY=p.vy - vn*ny;
-        p.vx = (-vn*(1-e))*nx + vtX*(1-mu*0.25);
-        p.vy = (-vn*(1-e))*ny + vtY*(1-mu*0.25);
+    for(const q of neigh){ if(q===p) continue;
+      const dx=q.x-p.x, dy=q.y-p.y; const r=p.r+q.r; const d2=dx*dx+dy*dy;
+      if(d2>0 && d2<r*r){
+        const d=Math.sqrt(d2)||1e-6; const nx=dx/d, ny=dy/d; const overlap=r-d;
+        const push=0.5*overlap; p.x-=nx*push; p.y-=ny*push; q.x+=nx*push; q.y+=ny*push;
+        const rvx=q.vx-p.vx, rvy=q.vy-p.vy; const vn=rvx*nx + rvy*ny; if(vn>0) continue;
+        const jn=-(1+e)*vn*0.5; const tx=-ny, ty=nx;
+        const vt=rvx*tx + rvy*ty; const jt=clamp(vt, -mu*Math.abs(jn), mu*Math.abs(jn));
+        p.vx -= jn*nx + jt*tx; p.vy -= jn*ny + jt*ty; q.vx += jn*nx + jt*tx; q.vy += jn*ny + jt*ty;
       }
     }
-    if(!collided) break;
-  }
-
-  // In empty mode, cull when below the outlet and within slot
-  if(sim.state==='empty'){
-    const yGate=P1[1]; const xL=P1L[0], xR=P1[0];
-    if(p.y - p.r > yGate + 8 && p.x > xL && p.x < xR){ p.dead=true; }
-  }
-}
-
-function spawnParticle(){
-  const r=clamp(Number(pr.value),2,10);
-  const [cx,cy]=geom.inletCenter;
-  const span=Math.max(4, Number(inR_m.value)*geom.scale - r*2);
-  const inletOff=clamp(Number(inletOff_m.value),0,1.0)*geom.scale;
-  const x=cx + (Math.random()-0.5) * span * 0.6; // jitter inside inlet width
-  const y=cy + r + 2 + inletOff; // just inside, below the top, with offset down
-  const p=new P(x,y,r);
-  p.vx = (Math.random()-0.5)*4; p.vy = Math.random()*4; // downward velocity only
-
-  // Check for overlap with existing particles
-  let overlap = false;
-  const neigh = gridNeighbors(p.x, p.y);
-  for(const q of neigh){
-    const dx = q.x - p.x;
-    const dy = q.y - p.y;
-    const d2 = dx*dx + dy*dy;
-    if(d2 < (p.r + q.r)*(p.r + q.r)){
-      overlap = true;
-      break;
-    }
-  }
-  if(!overlap){
-    particles.push(p);
   }
 }
 
 // Sim state
 const sim={running:true,state:'idle',t:0,lastSpawn:0};
 
-function step(dt){
-  const G=Number(grav.value);
-  const SUB=10; const sdt=dt/SUB; // more substeps => fewer leaks
+function spawnParticle(){
+  const r=clamp(Number(pr.value),2,10);
+  const [cx,cy]=geom.inletCenter;
+  const span=Math.max(4, Number(inR_m.value)*geom.scale - r*2);
+  const x=cx + (Math.random()-0.5) * span * 0.6;
+  const y=cy + r + 2; // inside
+  const p=new P(x,y,r,batchIdNow());
+  p.vx=(Math.random()-0.5)*4; p.vy=Math.random()*4;
+  let overlap=false; const neigh=gridNeighbors(x,y);
+  for(const q of neigh){ const dx=q.x-x, dy=q.y-y; if(dx*dx+dy*dy < (r+q.r)*(r+q.r)){ overlap=true; break; } }
+  if(!overlap) particles.push(p);
+}
+
+function physicsStep(dt){
+  const segs=buildSegmentsFor(sim.state);
+  const G=Number(grav.value) * geom.scale;
+  const SUB=6; const sdt=dt/SUB;
+
   if(sim.state==='fill'){
     const rate=clamp(Number(pps.value),1,4000);
-    sim.lastSpawn += dt*rate; while(sim.lastSpawn>=1){ spawnParticle(); sim.lastSpawn -= 1; }
+    sim.lastSpawn += dt*rate;
+    while(sim.lastSpawn>=1){ spawnParticle(); sim.lastSpawn -= 1; }
   }
+
   for(let k=0;k<SUB;k++){
-    for(const p of particles){ p.vy += G*sdt; p.x += p.vx*sdt; p.y += p.vy*sdt; collideSegments(p); }
-    // Two passes of particle collisions per substep
+    for(const p of particles){
+      // gravity
+      p.vy += G*sdt;
+      integrateParticle(p, sdt, segs);
+    }
     particleCollisions();
   }
-  particles = particles.filter(p=>!p.dead && p.y - p.r < H + 120);
+
+  // Drain naturally in EMPTY: they fall through opening and are culled offscreen
+  particles = particles.filter(p=>p.y - p.r < H + 120);
 }
 
 // Drawing --------------------------------------------------------------------
 function drawLine(a,b,style='#334155',w=2){ ctx.strokeStyle=style; ctx.lineWidth=w; ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke(); }
 
-function drawBin(){
-  for(let i=0;i<geom.pointsRight.length-1;i++) drawLine(geom.pointsRight[i],geom.pointsRight[i+1]);
-  for(let i=0;i<geom.pointsLeft.length-1;i++) drawLine(geom.pointsLeft[i],geom.pointsLeft[i+1]);
-  const P1=geom.pointsRight[1]; const P1L=[2*geom.cx - P1[0], P1[1]];
-  drawLine(P1L,P1, sim.state==='empty' ? '#34d399' : '#64748b', 6);
-  drawDims();
+function drawShell() {
+  const segs = buildSegmentsFor(sim.state);
+  for (const [A, B] of segs) drawLine(A, B, '#334155', 2);
 }
-
-function drawDims(){
-  const x0 = Math.max(...geom.pointsRight.map(p=>p[0])) + 40;
-  ctx.save(); ctx.fillStyle='#94a3b8'; ctx.strokeStyle='#475569'; ctx.lineWidth=1.5; ctx.font='12px ui-sans-serif';
-  const topY = geom.inletCenter[1]; const botY = geom.pointsRight[1][1];
-  drawArrow([x0, topY],[x0, botY]);
-  ctx.fillText(`H ≈ ${(geom.totalH/geom.scale).toFixed(2)} m`, x0+6, (topY+botY)/2);
-  const minX = Math.min(...geom.pointsLeft.map(p=>p[0])); const maxX = Math.max(...geom.pointsRight.map(p=>p[0])); const midY = (geom.pointsRight[2][1]+geom.pointsRight[3][1])/2;
-  drawArrow([minX, midY],[maxX, midY]);
-  ctx.fillText(`D(max) ≈ ${(geom.totalD/geom.scale).toFixed(2)} m`, x0+6, midY-6);
-  ctx.fillText(`Outlet R = ${Number(outR_m.value).toFixed(2)} m`, x0+6, botY+16);
-  ctx.fillText(`Inlet R = ${Number(inR_m.value).toFixed(2)} m`, x0+6, topY-8);
-  ctx.fillText(`θ_hop = ${Number(hopAng.value)}°`, x0+6, geom.pointsRight[2][1]-8);
-  ctx.fillText(`θ_roof = ${Number(roofAng.value)}°`, x0+6, geom.pointsRight[4][1]-8);
-  ctx.restore();
-}
-
-function drawArrow(a,b){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke(); const head=(x,y,dx,dy)=>{const L=6; const n=Math.hypot(dx,dy)||1; const ux=dx/n, uy=dy/n; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-ux*L - uy*L*0.6, y-uy*L + ux*L*0.6); ctx.lineTo(x-ux*L + uy*L*0.6, y-uy*L - ux*L*0.6); ctx.closePath(); ctx.fillStyle='#94a3b8'; ctx.fill();}; head(b[0],b[1], b[0]-a[0], b[1]-a[1]); head(a[0],a[1], a[0]-b[0], a[1]-b[1]); }
 
 function drawParticles(){
   for(const p of particles){ ctx.beginPath(); ctx.arc(p.x,p.y,p.r+1.5,0,Math.PI*2); ctx.fillStyle='rgba(2,6,23,0.25)'; ctx.fill(); }
-  for(const p of particles){ const g=ctx.createRadialGradient(p.x-p.r*0.5,p.y-p.r*0.7,p.r*0.2,p.x,p.y,p.r); g.addColorStop(0,'#fff4'); g.addColorStop(1,p.color); ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill(); }
+  for(const p of particles){ ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle=batchColor(p.batch); ctx.fill(); }
 }
 
 function drawHUD(){
-  hud.innerHTML=''; const items=[
-    {label:'State',value:sim.state},{label:'Particles',value:particles.length.toString()},{label:'PPS',value:pps.value},
-    {label:'H (m)',value:(geom.totalH/geom.scale).toFixed(2)},{label:'Dmax (m)',value:(geom.totalD/geom.scale).toFixed(2)}
+  hud.innerHTML='';
+  const items=[
+    {label:'State',value:sim.state},
+    {label:'Particles',value:particles.length.toString()},
+    {label:'PPS',value:pps.value}
   ];
-  for(const it of items){ const d=document.createElement('div'); d.className='badge'; d.textContent=`${it.label}: ${it.value}`; hud.appendChild(d); }
+  for(const it of items){
+    const d=document.createElement('div'); d.className='badge'; d.textContent=`${it.label}: ${it.value}`; hud.appendChild(d);
+  }
 }
 
-function loop(now){ const dt=Math.min(0.033,(now-last)/1000); last=now; if(sim.running){ step(dt); ctx.clearRect(0,0,W,H); drawBin(); drawParticles(); drawHUD(); } requestAnimationFrame(loop); }
+function frame(now){
+  try{
+    clearError();
+    const dtSec=Math.min(0.05,(now-lastTS)/1000); lastTS=now; acc += dtSec;
+    const maxSteps=8; let steps=0;
+    while(acc >= FIXED_DT && steps<maxSteps){ physicsStep(FIXED_DT); acc -= FIXED_DT; steps++; }
+    ctx.clearRect(0,0,W,H); drawShell(); drawParticles(); drawHUD();
+  }catch(e){ uiError((e&&e.message)||String(e)); console.error(e); }
+  requestAnimationFrame(frame);
+}
 
 function resize(){ recomputeGeometry(); }
 window.addEventListener('resize', resize);
-['input','change'].forEach(ev=>{ [outR_m,hopAng,hopLen_m,wallLen_m,roofAng,inR_m,inletOff_m].forEach(el=>el.addEventListener(ev,recomputeGeometry)); });
+['input','change'].forEach(ev=>{
+  [outR_m,hopAng,hopLen_m,wallLen_m,roofAng,inR_m,inletOff_m].forEach(el=>el.addEventListener(ev,recomputeGeometry));
+});
 
 document.getElementById('btnFill').onclick=()=>{ sim.state='fill'; modeSel.value='fill'; };
-
 document.getElementById('btnEmpty').onclick=()=>{ sim.state='empty'; modeSel.value='empty'; };
-
 document.getElementById('btnPause').onclick=()=>{ sim.running=!sim.running; document.getElementById('btnPause').textContent = sim.running ? 'Pause' : 'Resume'; };
-
 document.getElementById('btnReset').onclick=()=>{ particles=[]; sim.state='idle'; modeSel.value='idle'; };
-
 modeSel.onchange=(e)=>{ sim.state=e.target.value; };
 
 // Boot
-recomputeGeometry(); requestAnimationFrame(loop);
+recomputeGeometry(); requestAnimationFrame(frame);
 </script>
 </body>
 </html>
