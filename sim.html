@@ -33,35 +33,35 @@
 </head>
 <body>
 <header>
-  <h1>2D Hopper Bin — Robust CCD (SoA)</h1>
-  <div class="sub">Low‑bounce grains, true Coulomb friction, sleeping, thicker effective walls. Inlet and outlet are independent.</div>
+  <h1>2D Hopper Bin Particle Flow — Continuous Collision Detection</h1>
+  <div class="sub">Attempt to model grain, Coulomb friction, sleeping, independent inlet and outlet.</div>
 </header>
 <main>
   <section class="panel">
     <h2>Controls</h2>
     <div class="controls">
       <!-- Independent toggles -->
-      <div class="row"><label>Inlet: Filling</label><input id="fillToggle" type="checkbox" checked></div>
+      <div class="row"><label>Inlet: Filling</label><input id="fillToggle" type="checkbox"></div>
       <div class="row"><label>Outlet: Open</label><input id="outletToggle" type="checkbox"></div>
 
       <!-- Geometry (feet/deg) -->
-      <div class="row"><label>Outlet radius (ft)</label><input id="outR_m" type="number" min="0.16" max="5" step="0.03" value="1"></div>
-      <div class="row"><label>Hopper angle (deg)</label><input id="hopAng" type="number" min="10" max="80" step="1" value="55"></div>
-      <div class="row"><label>Hopper length (ft)</label><input id="hopLen_m" type="number" min="2" max="20" step="0.16" value="6.56"></div>
-      <div class="row"><label>Wall length (ft)</label><input id="wallLen_m" type="number" min="2" max="20" step="0.16" value="9.84"></div>
-      <div class="row"><label>Roof angle (deg)</label><input id="roofAng" type="number" min="10" max="80" step="1" value="25"></div>
-      <div class="row"><label>Inlet radius (ft)</label><input id="inR_m" type="number" min="0.16" max="5" step="0.03" value="0.66"></div>
-      <div class="row"><label>Inlet offset down (ft)</label><input id="inletOff_m" type="number" min="0" max="3.28" step="0.03" value="0.33"></div>
+      <div class="row"><label>Outlet radius (ft)</label><input id="outR_m" type="number" min="0.5" max="10" step="0.5" value="2"></div>
+            <div class="row"><label>Inlet radius (ft)</label><input id="inR_m" type="number" min="0.5" max="10" step="0.5" value="2"></div>
+      <div class="row"><label>Hopper angle (deg)</label><input id="hopAng" type="number" min="15" max="85" step="5" value="25"></div>
+      <div class="row"><label>Hopper length (ft)</label><input id="hopLen_m" type="number" min="2" max="25" step="1" value="15"></div>
+      <div class="row"><label>Wall length (ft)</label><input id="wallLen_m" type="number" min="2" max="40" step="1" value="20"></div>
+      <div class="row"><label>Roof angle (deg)</label><input id="roofAng" type="number" min="5" max="85" step="5" value="25"></div>
+      <div class="row"><label>Inlet offset down (ft)</label><input id="inletOff_m" type="number" min="0" max="3.5" step="0.25" value="0.5"></div>
 
       <!-- Physics -->
-      <div class="row"><label>Particles/sec (fill)</label><input id="pps" type="number" min="1" max="4000" step="10" value="250"></div>
-      <div class="row"><label>Particle radius (px)</label><input id="pr" type="number" min="2" max="10" step="1" value="3"></div>
+      <div class="row"><label>Particles/sec (fill)</label><input id="pps" type="number" min="1" max="4000" step="25" value="250"></div>
+      <div class="row"><label>Particle radius (px)</label><input id="pr" type="number" min="2" max="10" step="1" value="5"></div>
       <div class="row"><label>Restitution</label><input id="rest" type="number" min="0" max="1" step="0.05" value="0.15"></div>
-      <div class="row"><label>Friction (Coulomb)</label><input id="fric" type="number" min="0" max="1" step="0.05" value="0.60"></div>
+      <div class="row"><label>Friction (Coulomb)</label><input id="fric" type="number" min="0" max="1" step="0.05" value="0.3"></div>
       <div class="row"><label>Gravity (ft/s²)</label><input id="grav" type="number" min="1" max="100" step="1" value="32.2"></div>
-      <div class="row"><label>Time scale (×)</label><input id="timeScale" type="number" min="0.1" max="2" step="0.05" value="0.8"></div>
-      <div class="row"><label>Wall padding (px)</label><input id="wallPad" type="number" min="0" max="10" step="0.5" value="2.5"></div>
-      <div class="row"><label>Batch size (# same color)</label><input id="batchSize" type="number" min="1" max="100000" step="1" value="120"></div>
+      <div class="row"><label>Time scale (×)</label><input id="timeScale" type="number" min="0.1" max="2" step="0.05" value="0.75"></div>
+      <div class="row"><label>Wall padding (px)</label><input id="wallPad" type="number" min="0" max="10" step="0.5" value="5"></div>
+      <div class="row"><label>Batch size (# same color)</label><input id="batchSize" type="number" min="50" max="5000" step="50" value="250"></div>
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
         <button id="btnPrime" class="ghost">Prime ¾ Full</button>
@@ -69,7 +69,7 @@
         <button id="btnReset" class="danger">Reset</button>
       </div>
       <div style="font-size:11px;color:#94a3b8;margin-top:8px;line-height:1.35">
-        Tips: Increase <b>Friction</b> or <b>Wall padding</b> for tighter piles. Lower <b>Restitution</b> for less bounce.
+        Tips: Increase <b>Friction</b> for taller piles. Lower <b>Restitution</b> for less bounce.
         Use <b>Time scale</b> &lt; 1 for stability on small grains/high PPS.
       </div>
     </div>
@@ -108,6 +108,7 @@ const fric=document.getElementById('fric');
 const timeScale=document.getElementById('timeScale');
 const wallPad=document.getElementById('wallPad');
 const batchSizeEl=document.getElementById('batchSize');
+const SLEEP_VEL = 12;
 
 // Utils
 function uiError(msg){ errBox.textContent=msg; errBox.style.display='block'; }
@@ -419,8 +420,6 @@ function primeFill(frac=0.75){
 }
 
 // Physics step ---------------------------------------------------
-const sim={running:true, fillOn:true, outletOpen:false, t:0, lastSubsteps:0};
-
 function physicsStep(dt){
   const segs=buildSegments();
   const G=Number(grav.value) * geom.scale;
@@ -457,7 +456,7 @@ function physicsStep(dt){
   const sdt = dtEff / substeps;
 
   // Sleeping params (px/s and seconds)
-  const SLEEP_TIME = 0.40, SLEEP_VEL = 12;
+  const SLEEP_TIME = 0.40;
   const WAKE_VEL = 1.8 * SLEEP_VEL;
 
   for(let k=0;k<substeps;k++){
