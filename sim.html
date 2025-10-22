@@ -55,9 +55,9 @@
 
       <!-- Physics -->
       <div class="row"><label>Particles/sec (fill)</label><input id="pps" type="number" min="1" max="4000" step="25" value="250"></div>
-      <div class="row"><label>Particle radius (px)</label><input id="pr" type="number" min="2" max="10" step="1" value="5"></div>
+      <div class="row"><label>Particle radius (px)</label><input id="pr" type="number" min="2" max="10" step="1" value="4"></div>
       <div class="row"><label>Restitution</label><input id="rest" type="number" min="0" max="1" step="0.05" value="0.15"></div>
-      <div class="row"><label>Friction (Coulomb)</label><input id="fric" type="number" min="0" max="1" step="0.05" value="0.3"></div>
+      <div class="row"><label>Friction (Coulomb)</label><input id="fric" type="number" min="0" max="1" step="0.05" value="0.35"></div>
       <div class="row"><label>Gravity (ft/s²)</label><input id="grav" type="number" min="1" max="100" step="1" value="32.2"></div>
       <div class="row"><label>Time scale (×)</label><input id="timeScale" type="number" min="0.1" max="2" step="0.05" value="0.75"></div>
       <div class="row"><label>Wall padding (px)</label><input id="wallPad" type="number" min="0" max="10" step="0.5" value="5"></div>
@@ -420,25 +420,39 @@ function primeFill(frac=0.75){
 }
 
 // Physics step ---------------------------------------------------
-function physicsStep(dt){
-  const segs=buildSegments();
-  const G=Number(grav.value) * geom.scale;
-  const TS=clamp(Number(timeScale.value),0.1,2);
+// Clamp velocity to maximum speed in pixels/s
+function clampVelocity() {
+  const maxVelPx = 50 * geom.scale; // 50 ft/s
+  for (let i = 0; i < N; i++) {
+    if (SLPSTATE[i] === 1) continue; // Skip sleeping particles
+    const speed = Math.hypot(VX[i], VY[i]);
+    if (speed > maxVelPx) {
+      const scale = 0.0005 * maxVelPx / (speed || 1e-6); // Cut to 0.05% of max 
+      VX[i] *= scale;
+      VY[i] *= scale;
+    }
+  }
+}
+
+function physicsStep(dt) {
+  const segs = buildSegments();
+  const G = Number(grav.value) * geom.scale;
+  const TS = clamp(Number(timeScale.value), 0.1, 2);
   const dtEff = dt * TS;
   const pad = Number(wallPad.value) || 0;
 
   // Reset contact flags
-  CONTACT.fill(0,0,N);
+  CONTACT.fill(0, 0, N);
 
   // Spawn rate is real-time (independent of Time scale)
-  const rate=clamp(Number(pps.value),1,4000);
-  if(sim.fillOn){
+  const rate = clamp(Number(pps.value), 1, 4000);
+  if (sim.fillOn) {
     spawnAcc += dt * rate;
     rebuildGrid(); // ensure overlap checks are current
-    let guard=0;
-    while(spawnAcc>=1 && guard<rate*2){
+    let guard = 0;
+    while (spawnAcc >= 1 && guard < rate * 2) {
       const ok = trySpawnAtInlet();
-      if(ok) spawnAcc -= 1; else break;
+      if (ok) spawnAcc -= 1; else break;
       guard++;
     }
   } else {
@@ -446,43 +460,44 @@ function physicsStep(dt){
   }
 
   // Adaptive substeps to limit displacement
-  let maxSpd=0, minR=1e9;
-  for(let i=0;i<N;i++){ const s=Math.hypot(VX[i],VY[i]); if(s>maxSpd) maxSpd=s; if(RAD[i]<minR) minR=RAD[i]; }
-  if(!isFinite(minR)) minR=clamp(Number(pr.value),2,10);
+  let maxSpd = 0, minR = 1e9;
+  for (let i = 0; i < N; i++) { const s = Math.hypot(VX[i], VY[i]); if (s > maxSpd) maxSpd = s; if (RAD[i] < minR) minR = RAD[i]; }
+  if (!isFinite(minR)) minR = clamp(Number(pr.value), 2, 10);
   const MAX_DISP = 0.40 * minR;
-  let substeps = Math.max(2, Math.ceil((maxSpd*dtEff)/MAX_DISP));
+  let substeps = Math.max(2, Math.ceil((maxSpd * dtEff) / MAX_DISP));
   substeps = Math.min(substeps, 20);
-  sim.lastSubsteps=substeps;
+  sim.lastSubsteps = substeps;
   const sdt = dtEff / substeps;
 
   // Sleeping params (px/s and seconds)
   const SLEEP_TIME = 0.40;
   const WAKE_VEL = 1.8 * SLEEP_VEL;
 
-  for(let k=0;k<substeps;k++){
+  for (let k = 0; k < substeps; k++) {
     // gravity on awake ones
-    for(let i=0;i<N;i++){ if(SLPSTATE[i]===0) VY[i] += G*sdt; }
+    for (let i = 0; i < N; i++) { if (SLPSTATE[i] === 0) VY[i] += G * sdt; }
 
-    for(let i=0;i<N;i++){
+    for (let i = 0; i < N; i++) {
       integrateIndex(i, sdt, segs, pad);
     }
     particleCollisions();
+    clampVelocity(); // Apply velocity cap after collisions
+  }
 
-    // Sleep/wake update
-    for(let i=0;i<N;i++){
-      const speed = Math.hypot(VX[i],VY[i]);
-      if(CONTACT[i] && speed < SLEEP_VEL){
-        SLP[i] += sdt;
-        if(SLP[i] > SLEEP_TIME){ SLPSTATE[i]=1; VX[i]=0; VY[i]=0; }
-      } else {
-        SLP[i] = 0;
-        if(speed > WAKE_VEL || !CONTACT[i]) SLPSTATE[i]=0;
-      }
+  // Sleep/wake update
+  for (let i = 0; i < N; i++) {
+    const speed = Math.hypot(VX[i], VY[i]);
+    if (CONTACT[i] && speed < SLEEP_VEL) {
+      SLP[i] += sdt;
+      if (SLP[i] > SLEEP_TIME) { SLPSTATE[i] = 1; VX[i] = 0; VY[i] = 0; }
+    } else {
+      SLP[i] = 0;
+      if (speed > WAKE_VEL || !CONTACT[i]) SLPSTATE[i] = 0;
     }
   }
 
   // Cull far off-screen if outlet open (drain)
-  for(let i=N-1;i>=0;i--){ if(Y[i]-RAD[i] >= H+120) removeAt(i); }
+  for (let i = N - 1; i >= 0; i--) { if (Y[i] - RAD[i] >= H + 120) removeAt(i); }
 }
 
 // Drawing --------------------------------------------------------
